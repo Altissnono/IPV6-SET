@@ -1,140 +1,79 @@
-IPv6 Auto-Config — agent.sh
+# IPv6 Auto-Config — agent.sh
 
-Ce script permet de configurer automatiquement une IPv6 publique sur une VM :
+Ce script permet de configurer automatiquement une adresse IPv6 publique sur une VM :  
 
-allocation via API (allocate.php),
+- allocation via API (`allocate.php`)  
+- application sur l’interface réseau  
+- ajout de la route par défaut  
+- persistance de la configuration  
+- test de la connectivité  
 
-application sur l’interface réseau,
+---
 
-ajout de la route par défaut,
-
-persistance de la configuration,
-
-test de la connectivité.
-
-🚀 Utilisation rapide
+## 🚀 Utilisation rapide
 
 Une seule commande suffit :
 
-curl -fsSL https://raw.githubusercontent.com/Altissnono/IPV6-SET/main/agent.sh | sudo bash
+```bash
+curl -fsSL https://raw.githubusercontent.com/A
+```
 
-📦 Fonctionnement
+---
 
-Le script appelle ton API pour obtenir une IPv6 disponible, la gateway et le prefix length.
+## ⚙️ Fonctionnement
 
-L’ancienne IPv6 du même /64 est retirée.
+1. Le script appelle ton API pour obtenir une IPv6 disponible (adresse, gateway, prefix).  
+2. L’ancienne IPv6 du même `/64` est retirée.  
+3. La nouvelle IPv6 est appliquée à l’interface.  
+4. La route par défaut est mise à jour.  
+5. La configuration est persistée dans `/etc/network/interfaces.d/ipv6.conf`.  
+6. Un test de ping est exécuté pour valider la connectivité.  
 
-L’IPv6 est appliquée à l’interface.
+---
 
-La route par défaut est mise à jour.
+## ✅ Prérequis
 
-Une configuration persistante est écrite dans /etc/network/interfaces.d/ipv6.conf.
+### Sur la VM
+- Debian/Ubuntu avec `bash`, `curl` et `iproute2`  
+- Interface réseau existante (`ens18` par défaut)  
+- Paquets à installer si manquants :  
 
-Un test de ping IPv6 est lancé (Google DNS 2001:4860:4860::8888).
-
-✅ Prérequis
-Sur la VM
-
-Debian/Ubuntu avec iproute2, ifupdown, curl, ca-certificates.
-
+```bash
+sudo apt-get update
 sudo apt-get install -y iproute2 ifupdown curl ca-certificates
+```
 
+### Côté API
+- `allocate.php` doit être accessible et connecté à ta base MySQL.  
+- La table `ip_pool` doit contenir les IPv6 disponibles avec le champ `taken=0`.  
 
-Interface réseau correcte (ens18 par défaut dans le script).
+---
 
-Côté serveur API
+## 🐞 Débogage
 
-Fichier allocate.php corrigé (séparer les SET SQL).
+- Vérifie l’interface :  
+```bash
+ip a
+```
 
-Procédure MySQL allocate_ip_from_pool et table ip_pool bien peuplées.
+- Vérifie la route IPv6 :  
 
-🧪 Vérifications
-Voir l’IPv6 appliquée
-ip -6 addr show dev ens18
+```bash
+ip -6 route show
+```
 
-Vérifier la route
-ip -6 route
+- Ping la gateway :  
 
-Tester la connectivité
-ping -6 -c3 2001:4860:4860::8888
-ping -6 -c3 google.com
-
-🛠️ Dépannage
-Erreur curl: (22) … 500
-
-Ton API renvoie une erreur.
-Test direct :
-
-curl -v "https://vodgroup.org/SH/IPV6/allocate.php?token=XXXX&network=LAN&hostname=test&iface=ens18&mac=00:11:22:33:44:55"
-
-
-Si error=SQL syntax → corriger allocate.php.
-
-Vérifie les logs PHP (error_log).
-
-L’IP est appliquée mais Internet IPv6 ne marche pas
-
-Vérifie la gateway :
-
+```bash
 ping -6 -c3 2a03:75c0:1e:8::5
+```
 
+### 🛠️ Route manuelle en cas de bug
 
-Si la gateway répond mais pas Internet → problème OPNsense :
+Si la VM obtient bien une IPv6 mais que la connectivité est KO, ajoute la route par défaut à la main :
 
-Firewall IPv6 (autoriser LAN → any).
-
-Gateway IPv6 configurée dans System > Routing.
-
-Pas de NAT en IPv6.
-
-Test depuis OPNsense :
-
-ping6 -c3 2001:4860:4860::8888
-
-: nom d’option non valable
-
-Le fichier téléchargé contient des fins de lignes Windows (CRLF).
-Solution immédiate :
-
-curl -fsSL URL | sed 's/\r$//' | sudo bash
-
-
-Solution propre : uploader agent.sh en UTF-8 + LF (Unix).
-
-ip: command not found
-
-Installer iproute2 :
-
-sudo apt-get install -y iproute2
-
-Supprimer l’IPv6 et libérer dans la DB
-
-Supprimer sur la VM :
-
-ip -6 addr flush dev ens18
-ip -6 route del default || true
-rm -f /etc/network/interfaces.d/ipv6.conf
-systemctl reload networking || true
-
-
-Libérer côté DB :
-
-CALL release_ip('LAN','2a03:75c0:1e:8::3e8');
-
-🔧 Personnalisation
-
-Interface : modifier IFACE="ens18" dans le script.
-
-Réseau logique : NETWORK="LAN".
-
-Persistance : /etc/network/interfaces.d/ipv6.conf (modifiable).
-
-Source du script : héberger sur GitHub/GitLab (utiliser le lien Raw).
-
-🔒 Sécurité
-
-Le TOKEN doit rester secret.
-
-Utilise uniquement HTTPS.
-
-Si possible, restreindre l’accès API par IP (firewall ou logique PHP).
+```bash
+sudo ip -6 route del default || true
+sudo ip -6 route add default via 2a03:75c0:1e:8::5 dev ens18
+```
+Remplace `ens18` par le nom de ton interface si différent.

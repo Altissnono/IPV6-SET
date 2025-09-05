@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/A
 
 ## ⚙️ Fonctionnement
 
-1. Le script appelle ton API pour obtenir une IPv6 disponible (adresse, gateway, prefix).  
+1. Le script appelle l'API pour obtenir une IPv6 disponible (adresse, gateway, prefix).  
 2. L’ancienne IPv6 du même `/64` est retirée.  
 3. La nouvelle IPv6 est appliquée à l’interface.  
 4. La route par défaut est mise à jour.  
